@@ -569,6 +569,11 @@
 <div class="app-header">
   <div class="header-top">
     <div class="app-title">埋見家 家計簿</div>
+    <!-- 同期中インジケーター -->
+    <div id="sync-indicator" style="display:none;align-items:center;gap:6px;color:rgba(255,255,255,0.85);font-size:12px;">
+      <div style="width:14px;height:14px;border:2px solid rgba(255,255,255,0.3);border-top-color:white;border-radius:50%;animation:spin 0.7s linear infinite;"></div>
+      同期中
+    </div>
     <div class="month-nav">
       <button onclick="changeMonth(-1)">&#8249;</button>
       <span class="month-label" id="month-label">—</span>
@@ -833,15 +838,57 @@ const FIXED_COSTS = [
   { name: '咲良 ダンス月謝', amount: 4950 },
 ];
 
-// ─── Load / Save ───
-function loadEntries() {
-  try {
-    const raw = localStorage.getItem('umeimi_entries_v2');
-    entries = raw ? JSON.parse(raw) : getSampleData();
-  } catch(e) { entries = getSampleData(); }
+// ─── Google Sheets 連携 ───
+const GAS_URL = 'https://script.google.com/macros/s/AKfycbxmtCTsqn-Nh43yijKqrRcxO1IrD6Ucvb5BqBtswZSY1ccnDNwtRNCk7usDo4hDT3UPxg/exec';
+
+function setLoading(on) {
+  document.getElementById('sync-indicator').style.display = on ? 'flex' : 'none';
 }
-function saveEntries() {
-  localStorage.setItem('umeimi_entries_v2', JSON.stringify(entries));
+
+async function loadEntries() {
+  setLoading(true);
+  try {
+    const res = await fetch(GAS_URL);
+    const data = await res.json();
+    if (data.entries) {
+      entries = data.entries;
+      localStorage.setItem('umeimi_cache', JSON.stringify(entries));
+    }
+  } catch(e) {
+    const cached = localStorage.getItem('umeimi_cache');
+    entries = cached ? JSON.parse(cached) : [];
+    showToast('オフライン：キャッシュを表示中');
+  } finally {
+    setLoading(false);
+  }
+}
+
+async function saveEntries(entry) {
+  localStorage.setItem('umeimi_cache', JSON.stringify(entries));
+  try {
+    const res = await fetch(GAS_URL, {
+      method: 'POST',
+      body: JSON.stringify({ action: 'add', entry }),
+    });
+    const data = await res.json();
+    if (!data.success) throw new Error(data.error);
+  } catch(e) {
+    showToast('保存エラー。再度お試しください');
+    console.error(e);
+  }
+}
+
+async function deleteEntryRemote(id) {
+  localStorage.setItem('umeimi_cache', JSON.stringify(entries));
+  try {
+    await fetch(GAS_URL, {
+      method: 'POST',
+      body: JSON.stringify({ action: 'delete', id }),
+    });
+  } catch(e) {
+    showToast('削除の同期に失敗しました');
+    console.error(e);
+  }
 }
 
 function getSampleData() {
@@ -1223,7 +1270,7 @@ function selectKikae(el) {
 }
 
 // ─── Save entry ───
-function saveEntry() {
+async function saveEntry() {
   const memo = document.getElementById('f-memo').value.trim();
   const amount = parseInt(document.getElementById('f-amount').value) || 0;
   const date = document.getElementById('f-date').value;
@@ -1238,17 +1285,21 @@ function saveEntry() {
     who: formState.who,
     kikae: formState.kikae,
   };
+
+  // 楽観的UI：先に画面に反映
   entries.unshift(entry);
-  saveEntries();
+  renderHome();
   showToast('✓ 記録しました');
 
   document.getElementById('f-memo').value = '';
   document.getElementById('f-amount').value = '';
   document.querySelectorAll('.form-input').forEach(i => i.classList.remove('ai-fill'));
-
   const zone = document.getElementById('receipt-zone');
   zone.classList.remove('done');
   document.getElementById('receipt-input').value = '';
+
+  // スプレッドシートに保存
+  await saveEntries(entry);
 }
 
 let pendingDeleteId = null;
@@ -1256,14 +1307,16 @@ function deleteEntry(id) {
   pendingDeleteId = id;
   document.getElementById('confirm-modal').style.display = 'flex';
 }
-function confirmDelete(yes) {
+async function confirmDelete(yes) {
   document.getElementById('confirm-modal').style.display = 'none';
   if (!yes) { pendingDeleteId = null; return; }
-  entries = entries.filter(e => e.id !== pendingDeleteId);
+  const id = pendingDeleteId;
+  entries = entries.filter(e => e.id !== id);
   pendingDeleteId = null;
-  saveEntries();
   renderHistory();
   showToast('削除しました');
+  // スプレッドシートから削除
+  await deleteEntryRemote(id);
 }
 
 // ─── Receipt scan with Claude API ───
@@ -1359,19 +1412,25 @@ function showToast(msg) {
   setTimeout(() => t.classList.remove('show'), 2500);
 }
 
+// ─── Refresh ───
+async function refreshEntries() {
+  await loadEntries();
+  renderAll();
+  if (document.getElementById('page-history').classList.contains('active')) renderHistory();
+  if (document.getElementById('page-stats').classList.contains('active')) renderStats();
+  showToast('🔄 最新データを取得しました');
+}
+
 // ─── Init ───
 function renderAll() {
   renderHome();
 }
 
-function init() {
-  loadEntries();
+async function init() {
   updateMonthLabel();
-
-  // Set today's date
   const today = new Date().toISOString().split('T')[0];
   document.getElementById('f-date').value = today;
-
+  await loadEntries();
   renderAll();
 }
 
