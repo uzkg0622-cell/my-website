@@ -440,8 +440,125 @@
     animation: shimmer 1.2s infinite;
   }
 
+  /* ─── Stats Page extras ─── */
+  .period-tabs {
+    display: flex;
+    gap: 6px;
+    margin-bottom: 14px;
+    background: var(--card);
+    border-radius: var(--radius-sm);
+    padding: 4px;
+    border: 0.5px solid var(--border);
+  }
+  .period-tab {
+    flex: 1;
+    padding: 8px 0;
+    border: none;
+    border-radius: 7px;
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    background: transparent;
+    color: var(--text-muted);
+    font-family: inherit;
+    transition: all 0.18s;
+  }
+  .period-tab.active {
+    background: var(--primary);
+    color: white;
+  }
+  .year-nav {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 16px;
+    background: var(--card);
+    border-radius: var(--radius-sm);
+    padding: 10px;
+    border: 0.5px solid var(--border);
+  }
+  .year-nav button {
+    background: var(--surface);
+    border: 0.5px solid var(--border);
+    width: 32px; height: 32px;
+    border-radius: 50%;
+    font-size: 18px;
+    cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    color: var(--text);
+  }
+  .year-nav span {
+    font-size: 16px;
+    font-weight: 700;
+    color: var(--text);
+    min-width: 80px;
+    text-align: center;
+  }
+
+  /* Annual stacked bar chart */
+  .annual-bars-wrap {
+    display: flex;
+    align-items: flex-end;
+    gap: 6px;
+    height: 180px;
+    padding-bottom: 24px;
+    position: relative;
+  }
+  .annual-col {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    flex: 1;
+    min-width: 36px;
+    height: 100%;
+    position: relative;
+    justify-content: flex-end;
+  }
+  .annual-bar-stack {
+    width: 100%;
+    display: flex;
+    flex-direction: column-reverse;
+    border-radius: 4px 4px 0 0;
+    overflow: hidden;
+    cursor: pointer;
+    transition: opacity 0.15s;
+  }
+  .annual-bar-stack:hover { opacity: 0.85; }
+  .annual-bar-seg { width: 100%; transition: height 0.4s ease; }
+  .annual-col-label {
+    position: absolute;
+    bottom: -20px;
+    font-size: 10px;
+    color: var(--text-muted);
+    white-space: nowrap;
+  }
+  .annual-col-amount {
+    font-size: 9px;
+    color: var(--text-muted);
+    margin-bottom: 2px;
+    white-space: nowrap;
+  }
+  .annual-gridline {
+    position: absolute;
+    left: 0; right: 0;
+    border-top: 0.5px dashed var(--border);
+    pointer-events: none;
+  }
+  .annual-gridlabel {
+    position: absolute;
+    left: 0;
+    font-size: 9px;
+    color: var(--text-muted);
+    transform: translateY(-50%);
+  }
+  .legend-item {
+    display: flex; align-items: center; gap: 4px;
+    font-size: 11px; color: var(--text-mid);
+  }
+  .legend-dot { width: 10px; height: 10px; border-radius: 2px; flex-shrink: 0; }
+
   /* ─── Stats Page ─── */
-  .chart-container { background: var(--card); border-radius: var(--radius); padding: 16px; box-shadow: var(--shadow); margin-bottom: 14px; }
+  .chart-container { background: var(--card); border-radius: var(--radius); padding: 16px; box-shadow: var(--shadow); margin-bottom: 14px; border: 0.5px solid var(--border); }
   .chart-title { font-size: 13px; font-weight: 700; color: var(--text-mid); margin-bottom: 14px; }
   .bar-chart { display: flex; flex-direction: column; gap: 10px; }
 
@@ -599,16 +716,43 @@
 <div class="page" id="page-stats">
   <div class="page-spacer"></div>
 
+  <!-- 期間切替 -->
+  <div class="period-tabs">
+    <button class="period-tab active" data-period="month" onclick="setPeriod(this)">今月</button>
+    <button class="period-tab" data-period="year" onclick="setPeriod(this)">年間</button>
+    <button class="period-tab" data-period="all" onclick="setPeriod(this)">全期間</button>
+  </div>
+
+  <!-- 年選択（年間・全期間で表示） -->
+  <div id="year-selector" style="display:none;margin-bottom:12px;">
+    <div class="year-nav">
+      <button onclick="changeStatsYear(-1)">&#8249;</button>
+      <span id="stats-year-label">2026年</span>
+      <button onclick="changeStatsYear(1)">&#8250;</button>
+    </div>
+  </div>
+
   <div class="summary-grid">
     <div class="summary-card full">
-      <div class="summary-label">月間合計</div>
+      <div class="summary-label" id="stats-period-label">月間合計</div>
       <div class="summary-amount" id="stats-total">¥0</div>
       <div class="summary-sub" id="stats-sub">0件</div>
     </div>
   </div>
 
+  <!-- 年間棒グラフ（年間モード時のみ） -->
+  <div class="chart-container" id="annual-chart-container" style="display:none;">
+    <div class="chart-title" id="annual-chart-title">月別支出グラフ</div>
+    <!-- カテゴリ凡例 -->
+    <div id="annual-legend" style="display:flex;flex-wrap:wrap;gap:6px 10px;margin-bottom:12px;"></div>
+    <!-- 横スクロール棒グラフ -->
+    <div style="overflow-x:auto;-webkit-overflow-scrolling:touch;">
+      <div id="annual-bar-chart" style="min-width:520px;padding-bottom:4px;"></div>
+    </div>
+  </div>
+
   <div class="chart-container">
-    <div class="chart-title">カテゴリ別内訳</div>
+    <div class="chart-title" id="cats-chart-title">カテゴリ別内訳</div>
     <div class="bar-chart" id="stats-bars"></div>
   </div>
 
@@ -642,6 +786,18 @@
     統計
   </button>
 </nav>
+
+<!-- 削除確認モーダル -->
+<div id="confirm-modal" style="display:none;position:fixed;inset:0;z-index:500;align-items:center;justify-content:center;background:rgba(0,0,0,0.45);">
+  <div style="background:var(--card);border-radius:var(--radius);padding:28px 24px 20px;max-width:300px;width:88%;box-shadow:var(--shadow-lg);text-align:center;">
+    <div style="font-size:28px;margin-bottom:12px;">🗑️</div>
+    <div style="font-size:16px;font-weight:700;color:var(--text);margin-bottom:6px;">本当に削除しますか？</div>
+    <div style="display:flex;gap:10px;margin-top:6px;">
+      <button onclick="confirmDelete(true)"  style="flex:1;padding:13px 0;border:none;border-radius:var(--radius-sm);font-size:15px;font-weight:500;background:var(--accent);color:white;cursor:pointer;font-family:inherit;">はい</button>
+      <button onclick="confirmDelete(false)" style="flex:1;padding:13px 0;border:1px solid var(--border-mid);border-radius:var(--radius-sm);font-size:15px;font-weight:500;background:var(--surface);color:var(--text);cursor:pointer;font-family:inherit;">いいえ</button>
+    </div>
+  </div>
+</div>
 
 <div class="toast" id="toast"></div>
 
@@ -690,17 +846,57 @@ function saveEntries() {
 
 function getSampleData() {
   const now = new Date();
-  const y = now.getFullYear(), m = now.getMonth()+1;
-  const d = (day) => `${y}-${String(m).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
+  const y = now.getFullYear();
+  const d = (month, day) => `${y}-${String(month).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
   return [
-    { id:1, date: d(1), memo:'プラッツ', amount:3650, cat:'食費', who:'啓史', kikae:'なし' },
-    { id:2, date: d(2), memo:'ラムー', amount:2040, cat:'食費', who:'泉', kikae:'なし' },
-    { id:3, date: d(2), memo:'西松屋', amount:2295, cat:'日用品', who:'泉', kikae:'なし' },
-    { id:4, date: d(4), memo:'イオン', amount:5800, cat:'食費', who:'啓史', kikae:'なし' },
-    { id:5, date: d(7), memo:'ダイレックス', amount:1498, cat:'日用品', who:'泉', kikae:'なし' },
-    { id:6, date: d(10), memo:'ペガサス石油', amount:3229, cat:'交通費', who:'啓史', kikae:'なし' },
-    { id:7, date: d(12), memo:'のざき小児歯科', amount:330, cat:'医療費', who:'泉', kikae:'なし' },
-    { id:8, date: d(15), memo:'しいのみこども園', amount:10950, cat:'教育費', who:'啓史', kikae:'なし' },
+    // 1月
+    { id:101, date:d(1,5),  memo:'トライアル',        amount:2800, cat:'食費',   who:'啓史', kikae:'なし' },
+    { id:102, date:d(1,8),  memo:'コスモス',          amount:3100, cat:'食費',   who:'泉',   kikae:'なし' },
+    { id:103, date:d(1,10), memo:'ダイレックス',      amount:1800, cat:'日用品', who:'泉',   kikae:'なし' },
+    { id:104, date:d(1,12), memo:'ペガサス石油',      amount:3520, cat:'交通費', who:'啓史', kikae:'なし' },
+    { id:105, date:d(1,15), memo:'しいのみこども園',  amount:12270,cat:'教育費', who:'啓史', kikae:'なし' },
+    { id:106, date:d(1,18), memo:'じょうとうクリニック',amount:1470,cat:'医療費',who:'泉',   kikae:'なし' },
+    { id:107, date:d(1,22), memo:'シャトレーゼ',      amount:2340, cat:'レジャー',who:'啓史',kikae:'なし' },
+    { id:108, date:d(1,25), memo:'ラムー',            amount:2722, cat:'食費',   who:'泉',   kikae:'なし' },
+    { id:109, date:d(1,28), memo:'西松屋',            amount:1077, cat:'日用品', who:'泉',   kikae:'なし' },
+    // 2月
+    { id:201, date:d(2,3),  memo:'トライアル',        amount:3507, cat:'食費',   who:'啓史', kikae:'なし' },
+    { id:202, date:d(2,7),  memo:'コスモス',          amount:3113, cat:'食費',   who:'泉',   kikae:'なし' },
+    { id:203, date:d(2,10), memo:'ダイレックス',      amount:3004, cat:'日用品', who:'泉',   kikae:'なし' },
+    { id:204, date:d(2,11), memo:'いちご狩り',        amount:5500, cat:'レジャー',who:'啓史',kikae:'なし' },
+    { id:205, date:d(2,14), memo:'のざき小児歯科',    amount:494,  cat:'医療費', who:'泉',   kikae:'なし' },
+    { id:206, date:d(2,17), memo:'しいのみこども園',  amount:10460,cat:'教育費', who:'啓史', kikae:'なし' },
+    { id:207, date:d(2,20), memo:'ペガサス石油',      amount:3401, cat:'交通費', who:'啓史', kikae:'なし' },
+    { id:208, date:d(2,23), memo:'コストコ',          amount:13012,cat:'レジャー',who:'啓史',kikae:'なし' },
+    { id:209, date:d(2,26), memo:'くすりのレディ',    amount:1306, cat:'日用品', who:'泉',   kikae:'なし' },
+    // 3月
+    { id:301, date:d(3,3),  memo:'トライアル',        amount:1918, cat:'食費',   who:'啓史', kikae:'なし' },
+    { id:302, date:d(3,5),  memo:'コスモス',          amount:1865, cat:'食費',   who:'泉',   kikae:'なし' },
+    { id:303, date:d(3,7),  memo:'Amazon',            amount:9727, cat:'日用品', who:'啓史', kikae:'啓史立替' },
+    { id:304, date:d(3,11), memo:'ペガサス石油',      amount:3944, cat:'交通費', who:'啓史', kikae:'なし' },
+    { id:305, date:d(3,17), memo:'しいのみこども園',  amount:8300, cat:'教育費', who:'啓史', kikae:'なし' },
+    { id:306, date:d(3,23), memo:'九州旅行',          amount:19000,cat:'レジャー',who:'啓史',kikae:'なし' },
+    { id:307, date:d(3,24), memo:'高速代',            amount:16410,cat:'レジャー',who:'啓史',kikae:'なし' },
+    { id:308, date:d(3,28), memo:'くすりのレディ',    amount:615,  cat:'食費',   who:'泉',   kikae:'なし' },
+    // 4月
+    { id:401, date:d(4,1),  memo:'コスモス',          amount:2894, cat:'食費',   who:'泉',   kikae:'なし' },
+    { id:402, date:d(4,2),  memo:'ラムー',            amount:2352, cat:'食費',   who:'啓史', kikae:'なし' },
+    { id:403, date:d(4,4),  memo:'西松屋',            amount:2295, cat:'日用品', who:'泉',   kikae:'なし' },
+    { id:404, date:d(4,5),  memo:'細川さん御祝儀',    amount:50000,cat:'交際費', who:'啓史', kikae:'なし' },
+    { id:405, date:d(4,7),  memo:'トライアル',        amount:5300, cat:'食費',   who:'啓史', kikae:'なし' },
+    { id:406, date:d(4,8),  memo:'くろだクリニック',  amount:7100, cat:'医療費', who:'泉',   kikae:'泉立替' },
+    { id:407, date:d(4,15), memo:'しいのみこども園',  amount:10950,cat:'教育費', who:'啓史', kikae:'なし' },
+    { id:408, date:d(4,15), memo:'固定資産税',        amount:32900,cat:'公租公課',who:'啓史',kikae:'なし' },
+    { id:409, date:d(4,20), memo:'おもちゃ王国',      amount:5300, cat:'レジャー',who:'啓史',kikae:'なし' },
+    { id:410, date:d(4,29), memo:'姫路セントラルパーク',amount:9800,cat:'レジャー',who:'啓史',kikae:'なし' },
+    // 5月（今月サンプル）
+    { id:501, date:d(5,1),  memo:'プラッツ',          amount:3650, cat:'食費',   who:'啓史', kikae:'なし' },
+    { id:502, date:d(5,2),  memo:'ラムー',            amount:2040, cat:'食費',   who:'泉',   kikae:'なし' },
+    { id:503, date:d(5,2),  memo:'西松屋',            amount:2295, cat:'日用品', who:'泉',   kikae:'なし' },
+    { id:504, date:d(5,4),  memo:'イオン',            amount:5800, cat:'食費',   who:'啓史', kikae:'なし' },
+    { id:505, date:d(5,10), memo:'ペガサス石油',      amount:3229, cat:'交通費', who:'啓史', kikae:'なし' },
+    { id:506, date:d(5,12), memo:'のざき小児歯科',    amount:330,  cat:'医療費', who:'泉',   kikae:'なし' },
+    { id:507, date:d(5,15), memo:'しいのみこども園',  amount:10950,cat:'教育費', who:'啓史', kikae:'なし' },
   ];
 }
 
@@ -762,15 +958,65 @@ function renderHistory() {
     '<div class="empty-state"><div class="icon">📋</div><p>条件に合う記録がありません</p></div>';
 }
 
+// ─── Stats state ───
+let statsPeriod = 'month'; // 'month' | 'year' | 'all'
+let statsYear = new Date().getFullYear();
+
+function setPeriod(el) {
+  statsPeriod = el.dataset.period;
+  document.querySelectorAll('.period-tab').forEach(b => b.classList.remove('active'));
+  el.classList.add('active');
+  const yearSel = document.getElementById('year-selector');
+  yearSel.style.display = (statsPeriod === 'year') ? 'block' : 'none';
+  renderStats();
+}
+
+function changeStatsYear(delta) {
+  statsYear += delta;
+  document.getElementById('stats-year-label').textContent = statsYear + '年';
+  renderStats();
+}
+
+function getStatsEntries() {
+  if (statsPeriod === 'month') {
+    return entries.filter(e => {
+      const d = new Date(e.date);
+      return d.getFullYear() === currentMonth.getFullYear() && d.getMonth() === currentMonth.getMonth();
+    });
+  } else if (statsPeriod === 'year') {
+    return entries.filter(e => new Date(e.date).getFullYear() === statsYear);
+  } else {
+    return [...entries];
+  }
+}
+
 function renderStats() {
-  const fe = entries.filter(e => {
-    const ed = new Date(e.date);
-    return ed.getFullYear()===currentMonth.getFullYear() && ed.getMonth()===currentMonth.getMonth();
-  });
+  const fe = getStatsEntries();
   const total = fe.reduce((s,e)=>s+e.amount,0);
+
+  // period label
+  const labels = { month: `${currentMonth.getFullYear()}年${currentMonth.getMonth()+1}月の合計`, year: `${statsYear}年の合計`, all: '全期間合計' };
+  document.getElementById('stats-period-label').textContent = labels[statsPeriod];
   document.getElementById('stats-total').textContent = '¥'+total.toLocaleString();
   document.getElementById('stats-sub').textContent = fe.length+'件';
 
+  // show/hide annual chart
+  const annualContainer = document.getElementById('annual-chart-container');
+  annualContainer.style.display = (statsPeriod === 'year' || statsPeriod === 'all') ? 'block' : 'none';
+
+  if (statsPeriod === 'year') {
+    renderAnnualChart(statsYear, statsYear);
+    document.getElementById('annual-chart-title').textContent = `${statsYear}年 月別支出グラフ`;
+  } else if (statsPeriod === 'all') {
+    // Get all years in data
+    const years = [...new Set(entries.map(e => new Date(e.date).getFullYear()))].sort();
+    if (years.length > 0) {
+      renderAnnualChart(years[0], years[years.length-1]);
+      document.getElementById('annual-chart-title').textContent = `全期間 年別支出グラフ`;
+    }
+  }
+
+  // category breakdown
   const catTotals = {};
   fe.forEach(e => { catTotals[e.cat] = (catTotals[e.cat]||0) + e.amount; });
   const maxVal = Math.max(...Object.values(catTotals),1);
@@ -800,6 +1046,101 @@ function renderStats() {
       <div class="cat-bar-amount">${fc.amount ? '¥'+fc.amount.toLocaleString() : '—'}</div>
     </div>
   `).join('');
+}
+
+// ─── Annual stacked bar chart ───
+function renderAnnualChart(fromYear, toYear) {
+  const CATS = ['食費','日用品','レジャー','交通費','教育費','医療費','交際費','その他','光熱費','通信費','保険','公租公課'];
+
+  // Build columns: if single year → 12 months, else → each year
+  let cols = [];
+  if (fromYear === toYear) {
+    // month columns
+    for (let m = 0; m < 12; m++) {
+      const label = (m+1)+'月';
+      const colEntries = entries.filter(e => {
+        const d = new Date(e.date);
+        return d.getFullYear() === fromYear && d.getMonth() === m;
+      });
+      cols.push({ label, entries: colEntries });
+    }
+  } else {
+    // year columns
+    for (let y = fromYear; y <= toYear; y++) {
+      const colEntries = entries.filter(e => new Date(e.date).getFullYear() === y);
+      cols.push({ label: y+'年', entries: colEntries });
+    }
+  }
+
+  // Compute per-col cat totals
+  const colData = cols.map(col => {
+    const totals = {};
+    CATS.forEach(c => totals[c] = 0);
+    col.entries.forEach(e => { totals[e.cat] = (totals[e.cat]||0) + e.amount; });
+    const total = Object.values(totals).reduce((a,b)=>a+b,0);
+    return { label: col.label, totals, total };
+  });
+
+  const maxTotal = Math.max(...colData.map(c=>c.total), 1);
+
+  // Which cats actually have data?
+  const activeCats = CATS.filter(cat => colData.some(c => c.totals[cat] > 0));
+
+  // Legend
+  const legendEl = document.getElementById('annual-legend');
+  legendEl.innerHTML = activeCats.map(cat => `
+    <div class="legend-item">
+      <div class="legend-dot" style="background:${CAT_COLOR[cat]||'#888'}"></div>
+      <span>${cat}</span>
+    </div>
+  `).join('');
+
+  // Chart
+  const chartHeight = 160; // px for bars area
+  const gridSteps = 4;
+
+  // Grid lines HTML (positioned absolutely inside wrapper)
+  let gridHTML = '';
+  for (let i = 1; i <= gridSteps; i++) {
+    const pct = (i / gridSteps) * 100;
+    const bottomPct = 100 - pct;
+    const val = Math.round(maxTotal * (i/gridSteps));
+    gridHTML += `
+      <div class="annual-gridline" style="bottom:${pct}%"></div>
+      <div class="annual-gridlabel" style="bottom:${pct}%">${val>=10000?Math.round(val/10000)+'万':val.toLocaleString()}</div>
+    `;
+  }
+
+  // Bar columns
+  const barsHTML = colData.map(col => {
+    const barH = maxTotal > 0 ? Math.round((col.total / maxTotal) * chartHeight) : 0;
+    let segsHTML = '';
+    let accH = 0;
+    activeCats.forEach(cat => {
+      const v = col.totals[cat] || 0;
+      if (v === 0) return;
+      const segH = Math.round((v / maxTotal) * chartHeight);
+      accH += segH;
+      segsHTML += `<div class="annual-bar-seg" style="height:${segH}px;background:${CAT_COLOR[cat]||'#888'};"></div>`;
+    });
+    const amtLabel = col.total >= 10000 ? Math.round(col.total/10000)+'万' : (col.total > 0 ? col.total.toLocaleString() : '');
+    return `
+      <div class="annual-col">
+        <div class="annual-col-amount">${amtLabel}</div>
+        <div class="annual-bar-stack" style="height:${barH}px;" title="${col.label}: ¥${col.total.toLocaleString()}">${segsHTML}</div>
+        <div class="annual-col-label">${col.label}</div>
+      </div>
+    `;
+  }).join('');
+
+  document.getElementById('annual-bar-chart').innerHTML = `
+    <div class="annual-bars-wrap" style="height:${chartHeight+40}px;position:relative;padding-bottom:28px;padding-left:28px;">
+      ${gridHTML}
+      <div style="display:flex;align-items:flex-end;gap:5px;height:${chartHeight}px;width:100%;position:relative;z-index:1;">
+        ${barsHTML}
+      </div>
+    </div>
+  `;
 }
 
 function entryHTML(e, showDelete=false) {
@@ -859,7 +1200,7 @@ function showPage(name, btn) {
   btn.classList.add('active');
   if (name === 'home') renderHome();
   if (name === 'history') renderHistory();
-  if (name === 'stats') renderStats();
+  if (name === 'stats') { statsYear = currentMonth.getFullYear(); document.getElementById('stats-year-label').textContent = statsYear+'年'; renderStats(); }
 }
 
 // ─── Form state ───
@@ -910,8 +1251,16 @@ function saveEntry() {
   document.getElementById('receipt-input').value = '';
 }
 
+let pendingDeleteId = null;
 function deleteEntry(id) {
-  entries = entries.filter(e => e.id !== id);
+  pendingDeleteId = id;
+  document.getElementById('confirm-modal').style.display = 'flex';
+}
+function confirmDelete(yes) {
+  document.getElementById('confirm-modal').style.display = 'none';
+  if (!yes) { pendingDeleteId = null; return; }
+  entries = entries.filter(e => e.id !== pendingDeleteId);
+  pendingDeleteId = null;
   saveEntries();
   renderHistory();
   showToast('削除しました');
