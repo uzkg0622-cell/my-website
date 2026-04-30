@@ -557,6 +557,43 @@
   }
   .legend-dot { width: 10px; height: 10px; border-radius: 2px; flex-shrink: 0; }
 
+  /* ─── Fixed Costs editable ─── */
+  .fc-row {
+    display: flex; align-items: center; gap: 8px;
+    padding: 8px 0; border-bottom: 0.5px solid var(--border);
+  }
+  .fc-name { flex: 1; font-size: 13px; color: var(--text); }
+  .fc-amount { font-size: 13px; font-weight: 500; color: var(--primary); min-width: 70px; text-align: right; }
+  .fc-edit-btn {
+    padding: 4px 10px; border: 0.5px solid var(--border-mid);
+    border-radius: 6px; font-size: 11px; cursor: pointer;
+    background: var(--surface); color: var(--text-mid); font-family: inherit;
+  }
+  .fc-del-btn {
+    padding: 4px 8px; border: none; border-radius: 6px;
+    font-size: 12px; cursor: pointer;
+    background: #FEE2E2; color: #C0392B; font-family: inherit;
+  }
+  .fc-total-row {
+    display: flex; justify-content: space-between;
+    padding: 10px 0 8px; font-weight: 700; font-size: 13px;
+    color: var(--text); border-top: 1px solid var(--border-mid); margin-top: 4px;
+  }
+  .fc-apply-btn {
+    width: 100%; margin-top: 10px; padding: 13px 0;
+    border: none; border-radius: var(--radius-sm);
+    font-size: 14px; font-weight: 700; cursor: pointer;
+    background: var(--primary); color: white; font-family: inherit;
+    box-shadow: 0 2px 8px rgba(27,94,59,0.25);
+  }
+  .fc-apply-btn:active { transform: scale(0.98); }
+  .fc-add-btn {
+    width: 100%; margin-top: 8px; padding: 11px 0;
+    border: 1.5px dashed var(--primary-mid); border-radius: var(--radius-sm);
+    font-size: 14px; font-weight: 500; cursor: pointer;
+    background: var(--primary-pale); color: var(--primary); font-family: inherit;
+  }
+
   /* ─── Stats Page ─── */
   .chart-container { background: var(--card); border-radius: var(--radius); padding: 16px; box-shadow: var(--shadow); margin-bottom: 14px; border: 0.5px solid var(--border); }
   .chart-title { font-size: 13px; font-weight: 700; color: var(--text-mid); margin-bottom: 14px; }
@@ -767,8 +804,12 @@
   </div>
 
   <div class="chart-container">
-    <div class="chart-title">固定費</div>
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
+      <div class="chart-title" style="margin-bottom:0;">固定費</div>
+      <button onclick="applyFixedCostsToMonth()" style="padding:7px 14px;background:var(--primary);color:white;border:none;border-radius:var(--radius-sm);font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;white-space:nowrap;">📥 今月分に入力</button>
+    </div>
     <div id="fixed-costs-list"></div>
+    <button onclick="addMortgageToHistory()" style="width:100%;margin-top:12px;padding:10px 0;border:1px dashed #888;border-radius:var(--radius-sm);font-size:12px;color:var(--text-muted);background:var(--surface);cursor:pointer;font-family:inherit;">🏠 2024年5月〜の住宅ローンを過去データに一括追加</button>
   </div>
 </div>
 
@@ -791,6 +832,42 @@
     統計
   </button>
 </nav>
+
+<!-- 固定費 今月反映 確認モーダル -->
+<div id="fc-apply-modal" style="display:none;position:fixed;inset:0;z-index:500;align-items:center;justify-content:center;background:rgba(0,0,0,0.45);">
+  <div style="background:var(--card);border-radius:var(--radius);padding:24px 20px 20px;max-width:320px;width:90%;box-shadow:var(--shadow-lg);">
+    <div style="font-size:16px;font-weight:700;color:var(--text);margin-bottom:4px;">📥 固定費を入力</div>
+    <div style="font-size:13px;color:var(--text-muted);margin-bottom:12px;" id="fc-apply-month"></div>
+    <div style="background:var(--surface);border-radius:var(--radius-sm);padding:12px;margin-bottom:16px;font-size:13px;color:var(--text);white-space:pre-line;line-height:1.8;" id="fc-apply-list"></div>
+    <div style="font-size:12px;color:var(--text-muted);margin-bottom:16px;">上記をスプレッドシートに記録します</div>
+    <div style="display:flex;gap:10px;">
+      <button onclick="confirmApplyFixed(true)"  style="flex:1;padding:13px 0;border:none;border-radius:var(--radius-sm);font-size:15px;font-weight:500;background:var(--primary);color:white;cursor:pointer;font-family:inherit;">入力する</button>
+      <button onclick="confirmApplyFixed(false)" style="flex:1;padding:13px 0;border:1px solid var(--border-mid);border-radius:var(--radius-sm);font-size:15px;font-weight:500;background:var(--surface);color:var(--text);cursor:pointer;font-family:inherit;">キャンセル</button>
+    </div>
+  </div>
+</div>
+
+<!-- 固定費 追加／編集モーダル -->
+<div id="fixed-modal" style="display:none;position:fixed;inset:0;z-index:500;align-items:center;justify-content:center;background:rgba(0,0,0,0.45);">
+  <div style="background:var(--card);border-radius:var(--radius);padding:24px 20px 20px;max-width:320px;width:90%;box-shadow:var(--shadow-lg);">
+    <div style="font-size:16px;font-weight:700;color:var(--text);margin-bottom:16px;" id="fixed-modal-title">固定費を追加</div>
+    <div class="form-row">
+      <label class="form-label">項目名</label>
+      <input class="form-input" id="fixed-name-input" type="text" placeholder="例：電気代、NHK受信料…">
+    </div>
+    <div class="form-row">
+      <label class="form-label">金額</label>
+      <div class="amount-row">
+        <span class="yen">¥</span>
+        <input class="form-input amount-input" id="fixed-amount-input" type="number" inputmode="numeric" placeholder="0">
+      </div>
+    </div>
+    <div style="display:flex;gap:10px;margin-top:4px;">
+      <button onclick="saveFixed()" style="flex:1;padding:13px 0;border:none;border-radius:var(--radius-sm);font-size:15px;font-weight:500;background:var(--primary);color:white;cursor:pointer;font-family:inherit;">保存</button>
+      <button onclick="closeFixedModal()" style="flex:1;padding:13px 0;border:1px solid var(--border-mid);border-radius:var(--radius-sm);font-size:15px;font-weight:500;background:var(--surface);color:var(--text);cursor:pointer;font-family:inherit;">キャンセル</button>
+    </div>
+  </div>
+</div>
 
 <!-- 削除確認モーダル -->
 <div id="confirm-modal" style="display:none;position:fixed;inset:0;z-index:500;align-items:center;justify-content:center;background:rgba(0,0,0,0.45);">
@@ -818,25 +895,38 @@ let entries = [];
 const CAT_ICON = {
   '食費':'🛒','日用品':'🧴','交通費':'🚗','教育費':'📚',
   '交際費':'🎁','公租公課':'🏛','保険':'🛡','レジャー':'🎡',
-  '通信費':'📱','光熱費':'💡','医療費':'🏥','その他':'📌'
+  '通信費':'📱','光熱費':'💡','医療費':'🏥','その他':'📌','住宅ローン':'🏠'
 };
 const CAT_COLOR = {
   '食費':'#2E7D55','日用品':'#1565C0','交通費':'#6A1B9A','教育費':'#E65100',
   '交際費':'#AD1457','公租公課':'#4E342E','保険':'#00695C','レジャー':'#F57F17',
-  '通信費':'#37474F','光熱費':'#558B2F','医療費':'#C62828','その他':'#546E7A'
+  '通信費':'#37474F','光熱費':'#558B2F','医療費':'#C62828','その他':'#546E7A','住宅ローン':'#1A237E'
 };
 
-// ─── Fixed costs from the actual spreadsheet ───
-const FIXED_COSTS = [
-  { name: '電気代', amount: 0 },
-  { name: '水道代', amount: 7748 },
-  { name: '泉 医療保険', amount: 2140 },
-  { name: '泉 がん保険', amount: 2448 },
-  { name: '啓史 スマホ', amount: 1880 },
-  { name: '泉 スマホ', amount: 941 },
-  { name: '自宅 Wi-Fi', amount: 5280 },
-  { name: '咲良 ダンス月謝', amount: 4950 },
-];
+// ─── Fixed costs（localStorageで管理）───
+let FIXED_COSTS = loadFixedCosts();
+
+function loadFixedCosts() {
+  try {
+    const raw = localStorage.getItem('umeimi_fixed_costs');
+    if (raw) return JSON.parse(raw);
+  } catch(e) {}
+  return [
+    { id: 1, name: '電気代', amount: 0 },
+    { id: 2, name: '水道代', amount: 7748 },
+    { id: 3, name: '泉 医療保険', amount: 2140 },
+    { id: 4, name: '泉 がん保険', amount: 2448 },
+    { id: 5, name: '啓史 スマホ', amount: 1880 },
+    { id: 6, name: '泉 スマホ', amount: 941 },
+    { id: 7, name: '自宅 Wi-Fi', amount: 5280 },
+    { id: 8, name: '咲良 ダンス月謝', amount: 4950 },
+    { id: 9, name: '住宅ローン', amount: 60000 },
+  ];
+}
+
+function saveFixedCosts() {
+  localStorage.setItem('umeimi_fixed_costs', JSON.stringify(FIXED_COSTS));
+}
 
 // ─── Google Sheets 連携 ───
 const GAS_URL = 'https://script.google.com/macros/s/AKfycbz_5q_zRdLGzcg1Ncd6v0iejVnPabg9Zx4x8s__P6ELNnBvomCVJsLfHUJSZZ_T5jNCRw/exec';
@@ -897,6 +987,7 @@ function getSampleData() {
   const d = (month, day) => `${y}-${String(month).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
   return [
     // 1月
+    { id:100, date:d(1,1),  memo:'住宅ローン',        amount:60000,cat:'住宅ローン',who:'啓史',kikae:'なし' },
     { id:101, date:d(1,5),  memo:'トライアル',        amount:2800, cat:'食費',   who:'啓史', kikae:'なし' },
     { id:102, date:d(1,8),  memo:'コスモス',          amount:3100, cat:'食費',   who:'泉',   kikae:'なし' },
     { id:103, date:d(1,10), memo:'ダイレックス',      amount:1800, cat:'日用品', who:'泉',   kikae:'なし' },
@@ -1063,9 +1154,25 @@ function renderStats() {
     }
   }
 
-  // category breakdown
+  // category breakdown（固定費も含める）
   const catTotals = {};
   fe.forEach(e => { catTotals[e.cat] = (catTotals[e.cat]||0) + e.amount; });
+
+  // 固定費を「住宅ローン」カテゴリとして追加（金額>0のもの）
+  // 固定費の各項目をカテゴリ別に振り分け
+  const FC_CAT_MAP = {
+    '電気代':'光熱費','水道代':'光熱費',
+    '泉 医療保険':'保険','泉 がん保険':'保険',
+    '啓史 スマホ':'通信費','泉 スマホ':'通信費','自宅 Wi-Fi':'通信費',
+    '咲良 ダンス月謝':'教育費',
+    '住宅ローン':'住宅ローン',
+  };
+  FIXED_COSTS.forEach(fc => {
+    if (!fc.amount || fc.amount <= 0) return;
+    const cat = FC_CAT_MAP[fc.name] || 'その他';
+    catTotals[cat] = (catTotals[cat]||0) + fc.amount;
+  });
+
   const maxVal = Math.max(...Object.values(catTotals),1);
   const sorted = Object.entries(catTotals).sort((a,b)=>b[1]-a[1]);
   document.getElementById('stats-bars').innerHTML = sorted.map(([cat,amt]) => `
@@ -1087,17 +1194,24 @@ function renderStats() {
   `;
 
   // fixed costs
-  document.getElementById('fixed-costs-list').innerHTML = FIXED_COSTS.map(fc => `
-    <div class="cat-bar-row">
-      <div class="cat-bar-label" style="width:120px;font-size:12px">${fc.name}</div>
-      <div class="cat-bar-amount">${fc.amount ? '¥'+fc.amount.toLocaleString() : '—'}</div>
-    </div>
-  `).join('');
+  const totalFixed = FIXED_COSTS.reduce((s,fc) => s+(fc.amount||0), 0);
+  document.getElementById('fixed-costs-list').innerHTML =
+    FIXED_COSTS.map(fc => `
+      <div class="fc-row" id="fc-${fc.id}">
+        <div class="fc-name">${fc.name}</div>
+        <div class="fc-amount">${fc.amount ? '¥'+fc.amount.toLocaleString() : '—'}</div>
+        <button class="fc-edit-btn" onclick="openEditFixed(${fc.id})">編集</button>
+        <button class="fc-del-btn" onclick="deleteFixed(${fc.id})">✕</button>
+      </div>
+    `).join('') +
+    `<div class="fc-total-row"><span>合計</span><span>¥${totalFixed.toLocaleString()}</span></div>` +
+    `<button class="fc-apply-btn" onclick="applyFixedCostsToMonth()">📥 固定費を今月分に入力する</button>` +
+    `<button class="fc-add-btn" onclick="openAddFixed()">＋ 固定費を追加</button>`;
 }
 
 // ─── Annual stacked bar chart ───
 function renderAnnualChart(fromYear, toYear) {
-  const CATS = ['食費','日用品','レジャー','交通費','教育費','医療費','交際費','その他','光熱費','通信費','保険','公租公課'];
+  const CATS = ['食費','日用品','レジャー','交通費','教育費','医療費','交際費','その他','光熱費','通信費','保険','公租公課','住宅ローン'];
 
   // Build columns: if single year → 12 months, else → each year
   let cols = [];
@@ -1221,6 +1335,13 @@ function changeMonth(delta) {
   currentMonth.setMonth(currentMonth.getMonth() + delta);
   updateMonthLabel();
   renderAll();
+  // 開いているページも再描画
+  if (document.getElementById('page-history').classList.contains('active')) renderHistory();
+  if (document.getElementById('page-stats').classList.contains('active')) {
+    statsYear = currentMonth.getFullYear();
+    document.getElementById('stats-year-label').textContent = statsYear + '年';
+    renderStats();
+  }
 }
 
 // ─── User ───
@@ -1410,6 +1531,236 @@ function showToast(msg) {
   t.textContent = msg;
   t.classList.add('show');
   setTimeout(() => t.classList.remove('show'), 2500);
+}
+
+// ─── Fixed Costs CRUD ───
+let editingFixedId = null;
+
+function openAddFixed() {
+  editingFixedId = null;
+  document.getElementById('fixed-modal-title').textContent = '固定費を追加';
+  document.getElementById('fixed-name-input').value = '';
+  document.getElementById('fixed-amount-input').value = '';
+  document.getElementById('fixed-modal').style.display = 'flex';
+}
+
+function openEditFixed(id) {
+  const fc = FIXED_COSTS.find(f => f.id === id);
+  if (!fc) return;
+  editingFixedId = id;
+  document.getElementById('fixed-modal-title').textContent = '固定費を編集';
+  document.getElementById('fixed-name-input').value = fc.name;
+  document.getElementById('fixed-amount-input').value = fc.amount || '';
+  document.getElementById('fixed-modal').style.display = 'flex';
+}
+
+function closeFixedModal() {
+  document.getElementById('fixed-modal').style.display = 'none';
+  editingFixedId = null;
+}
+
+function saveFixed() {
+  const name = document.getElementById('fixed-name-input').value.trim();
+  const amount = parseInt(document.getElementById('fixed-amount-input').value) || 0;
+  if (!name) { showToast('項目名を入力してください'); return; }
+
+  if (editingFixedId !== null) {
+    const fc = FIXED_COSTS.find(f => f.id === editingFixedId);
+    if (fc) { fc.name = name; fc.amount = amount; }
+    showToast('✓ 更新しました');
+  } else {
+    const newId = Date.now();
+    FIXED_COSTS.push({ id: newId, name, amount });
+    showToast('✓ 追加しました');
+  }
+  saveFixedCosts();
+  closeFixedModal();
+  renderStats();
+}
+
+function deleteFixed(id) {
+  FIXED_COSTS = FIXED_COSTS.filter(f => f.id !== id);
+  saveFixedCosts();
+  renderStats();
+  showToast('削除しました');
+}
+
+// ─── 固定費を今月分に一括入力 ───
+async function applyFixedCostsToMonth() {
+  const y = currentMonth.getFullYear();
+  const m = currentMonth.getMonth();
+
+  // 今月1日の日付
+  const dateStr = `${y}-${String(m+1).padStart(2,'0')}-01`;
+
+  // 今月すでに固定費として登録済みのものをチェック（memo一致）
+  const thisMonthEntries = entries.filter(e => {
+    const d = new Date(e.date);
+    return d.getFullYear() === y && d.getMonth() === m;
+  });
+  const existingMemos = new Set(thisMonthEntries.map(e => e.memo));
+
+  const toAdd = FIXED_COSTS.filter(fc => fc.amount > 0 && !existingMemos.has(fc.name));
+
+  if (toAdd.length === 0) {
+    showToast('今月分はすべて入力済みです');
+    return;
+  }
+
+  // 確認ダイアログ
+  const names = toAdd.map(fc => `${fc.name} ¥${fc.amount.toLocaleString()}`).join('
+');
+  document.getElementById('fc-apply-list').textContent = names;
+  document.getElementById('fc-apply-month').textContent = `${y}年${m+1}月`;
+  document.getElementById('fc-apply-modal').style.display = 'flex';
+}
+
+async function confirmApplyFixed(yes) {
+  document.getElementById('fc-apply-modal').style.display = 'none';
+  if (!yes) return;
+
+  const y = currentMonth.getFullYear();
+  const m = currentMonth.getMonth();
+  const dateStr = `${y}-${String(m+1).padStart(2,'0')}-01`;
+
+  const thisMonthEntries = entries.filter(e => {
+    const d = new Date(e.date);
+    return d.getFullYear() === y && d.getMonth() === m;
+  });
+  const existingMemos = new Set(thisMonthEntries.map(e => e.memo));
+  const toAdd = FIXED_COSTS.filter(fc => fc.amount > 0 && !existingMemos.has(fc.name));
+
+  let count = 0;
+  for (const fc of toAdd) {
+    const entry = {
+      id: Date.now() + count,
+      date: dateStr,
+      memo: fc.name,
+      amount: fc.amount,
+      cat: fc.name === '住宅ローン' ? '住宅ローン' :
+           fc.name.includes('保険') ? '保険' :
+           fc.name.includes('スマホ') || fc.name.includes('Wi-Fi') ? '通信費' :
+           fc.name.includes('月謝') || fc.name.includes('スイミング') ? '教育費' :
+           fc.name.includes('電気') || fc.name.includes('水道') ? '光熱費' : 'その他',
+      who: '啓史',
+      kikae: 'なし',
+    };
+    entries.unshift(entry);
+    await saveEntries(entry);
+    count++;
+  }
+
+  renderHome();
+  renderStats();
+  showToast(`✓ ${count}件の固定費を登録しました`);
+}
+
+// ─── 固定費を今月分に入力 ───
+async function applyFixedCostsToMonth() {
+  const y = currentMonth.getFullYear();
+  const m = currentMonth.getMonth();
+  const monthStr = `${y}年${m+1}月`;
+
+  // 対象月に既に固定費が入っているか確認
+  const alreadyApplied = entries.some(e => {
+    const ed = new Date(e.date);
+    return ed.getFullYear() === y && ed.getMonth() === m && e.cat === '固定費反映済';
+  });
+
+  // 対象月の固定費IDを確認（重複防止）
+  const existingFixed = new Set(
+    entries
+      .filter(e => {
+        const ed = new Date(e.date);
+        return ed.getFullYear() === y && ed.getMonth() === m && String(e.id).startsWith('fixed_');
+      })
+      .map(e => String(e.id))
+  );
+
+  const targets = FIXED_COSTS.filter(fc => fc.amount > 0);
+  if (targets.length === 0) { showToast('金額が設定された固定費がありません'); return; }
+
+  // 既に全部入っているかチェック
+  const newTargets = targets.filter(fc => !existingFixed.has(`fixed_${y}${String(m+1).padStart(2,'0')}_${fc.id}`));
+  if (newTargets.length === 0) {
+    showToast(`${monthStr}の固定費はすでに入力済みです`);
+    return;
+  }
+
+  const dateStr = `${y}-${String(m+1).padStart(2,'0')}-01`;
+  const FC_CAT_MAP = {
+    '電気代':'光熱費','水道代':'光熱費',
+    '泉 医療保険':'保険','泉 がん保険':'保険',
+    '啓史 スマホ':'通信費','泉 スマホ':'通信費','自宅 Wi-Fi':'通信費',
+    '咲良 ダンス月謝':'教育費',
+    '住宅ローン':'住宅ローン',
+  };
+
+  setLoading(true);
+  let addedCount = 0;
+  for (const fc of newTargets) {
+    const entry = {
+      id: `fixed_${y}${String(m+1).padStart(2,'0')}_${fc.id}`,
+      date: dateStr,
+      memo: fc.name,
+      amount: fc.amount,
+      cat: FC_CAT_MAP[fc.name] || 'その他',
+      who: '啓史',
+      kikae: 'なし',
+    };
+    entries.unshift(entry);
+    await saveEntries(entry);
+    addedCount++;
+  }
+  setLoading(false);
+  renderHome();
+  renderStats();
+  showToast(`✓ ${monthStr}に固定費${addedCount}件を入力しました`);
+}
+
+// ─── 過去データに住宅ローンを一括追加（2024年5月〜） ───
+async function addMortgageToHistory() {
+  // 2024年5月 〜 現在月の1ヶ月前まで
+  const startYear = 2024, startMonth = 5; // 5月=month index 4
+  const endDate = new Date(currentMonth);
+  endDate.setMonth(endDate.getMonth() - 1);
+
+  let addedCount = 0;
+  setLoading(true);
+
+  const cursor = new Date(startYear, startMonth - 1, 1);
+  while (cursor <= endDate) {
+    const y = cursor.getFullYear();
+    const m = cursor.getMonth();
+    const id = `fixed_${y}${String(m+1).padStart(2,'0')}_9`; // id:9 = 住宅ローン
+
+    // 既存チェック
+    const exists = entries.some(e => String(e.id) === id);
+    if (!exists) {
+      const entry = {
+        id,
+        date: `${y}-${String(m+1).padStart(2,'0')}-01`,
+        memo: '住宅ローン',
+        amount: 60000,
+        cat: '住宅ローン',
+        who: '啓史',
+        kikae: 'なし',
+      };
+      entries.push(entry);
+      await saveEntries(entry);
+      addedCount++;
+    }
+    cursor.setMonth(cursor.getMonth() + 1);
+  }
+
+  setLoading(false);
+  renderHome();
+  renderStats();
+  if (addedCount > 0) {
+    showToast(`✓ 過去${addedCount}ヶ月分の住宅ローンを追加しました`);
+  } else {
+    showToast('住宅ローンはすでに追加済みです');
+  }
 }
 
 // ─── Refresh ───
