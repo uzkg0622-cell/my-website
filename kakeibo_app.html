@@ -1627,8 +1627,7 @@ async function applyFixedCostsToMonth() {
   }
 
   // 確認ダイアログ
-  const names = toAdd.map(fc => `${fc.name} ¥${fc.amount.toLocaleString()}`).join('
-');
+  const names = toAdd.map(fc => `${fc.name} ¥${fc.amount.toLocaleString()}`).join('\n');
   document.getElementById('fc-apply-list').textContent = names;
   document.getElementById('fc-apply-month').textContent = `${y}年${m+1}月`;
   document.getElementById('fc-apply-modal').style.display = 'flex';
