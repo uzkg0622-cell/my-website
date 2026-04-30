@@ -804,12 +804,9 @@
   </div>
 
   <div class="chart-container">
-    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
-      <div class="chart-title" style="margin-bottom:0;">固定費</div>
-      <button onclick="applyFixedCostsToMonth()" style="padding:7px 14px;background:var(--primary);color:white;border:none;border-radius:var(--radius-sm);font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;white-space:nowrap;">📥 今月分に入力</button>
-    </div>
+    <div class="chart-title">固定費</div>
     <div id="fixed-costs-list"></div>
-    <button onclick="addMortgageToHistory()" style="width:100%;margin-top:12px;padding:10px 0;border:1px dashed #888;border-radius:var(--radius-sm);font-size:12px;color:var(--text-muted);background:var(--surface);cursor:pointer;font-family:inherit;">🏠 2024年5月〜の住宅ローンを過去データに一括追加</button>
+
   </div>
 </div>
 
@@ -1177,8 +1174,7 @@ function renderStats() {
   const catTotals = {};
   fe.forEach(e => { catTotals[e.cat] = (catTotals[e.cat]||0) + e.amount; });
 
-  // 固定費を「住宅ローン」カテゴリとして追加（金額>0のもの）
-  // 固定費の各項目をカテゴリ別に振り分け
+  // 固定費をカテゴリ別に振り分け（期間に応じた月数を掛ける）
   const FC_CAT_MAP = {
     '電気代':'光熱費','水道代':'光熱費',
     '泉 医療保険':'保険','泉 がん保険':'保険',
@@ -1186,10 +1182,23 @@ function renderStats() {
     '咲良 ダンス月謝':'教育費',
     '住宅ローン':'住宅ローン',
   };
+  // 期間の月数を計算
+  let fcMonths = 1;
+  if (statsPeriod === 'year') {
+    fcMonths = 12;
+  } else if (statsPeriod === 'all') {
+    const allDates = entries.map(e => parseDate(e.date));
+    if (allDates.length > 0) {
+      const minY = Math.min(...allDates.map(d => d.y));
+      const minM = allDates.filter(d => d.y === minY).reduce((a,b) => Math.min(a, b.m), 11);
+      const now2 = new Date();
+      fcMonths = (now2.getFullYear() - minY) * 12 + (now2.getMonth() - minM) + 1;
+    }
+  }
   FIXED_COSTS.forEach(fc => {
     if (!fc.amount || fc.amount <= 0) return;
     const cat = FC_CAT_MAP[fc.name] || 'その他';
-    catTotals[cat] = (catTotals[cat]||0) + fc.amount;
+    catTotals[cat] = (catTotals[cat]||0) + fc.amount * fcMonths;
   });
 
   const maxVal = Math.max(...Object.values(catTotals),1);
