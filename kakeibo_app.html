@@ -891,6 +891,25 @@ let currentMonth = new Date();
 currentMonth.setDate(1);
 let entries = [];
 
+// ─── 日付ユーティリティ（タイムゾーン対応）───
+// "2024-09-30T15:00:00.000Z" → {y:2024, m:9, d:30} をJSTで取得
+function parseDate(dateStr) {
+  if (!dateStr) return { y: 0, m: -1, d: 0 };
+  const s = String(dateStr);
+  // "YYYY-MM-DD" 形式
+  const m = s.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (m) return { y: parseInt(m[1]), m: parseInt(m[2]) - 1, d: parseInt(m[3]) };
+  // ISO形式はJSTに変換（+9時間）
+  const dt = new Date(s);
+  const jst = new Date(dt.getTime() + 9 * 60 * 60 * 1000);
+  return { y: jst.getUTCFullYear(), m: jst.getUTCMonth(), d: jst.getUTCDate() };
+}
+
+function dateStr(entry) {
+  const { m, d } = parseDate(entry.date);
+  return `${m + 1}月${d}日`;
+}
+
 // ─── Category icons & colors ───
 const CAT_ICON = {
   '食費':'🛒','日用品':'🧴','交通費':'🚗','教育費':'📚',
@@ -1043,8 +1062,8 @@ function getFilteredEntries() {
   const y = currentMonth.getFullYear();
   const m = currentMonth.getMonth();
   return entries.filter(e => {
-    const ed = new Date(e.date);
-    if (ed.getFullYear() !== y || ed.getMonth() !== m) return false;
+    const ed = parseDate(e.date);
+    if (ed.y !== y || ed.m !== m) return false;
     if (currentUser !== '全員' && e.who !== currentUser) return false;
     if (currentFilter !== '全て' && e.cat !== currentFilter) return false;
     return true;
@@ -1118,11 +1137,11 @@ function changeStatsYear(delta) {
 function getStatsEntries() {
   if (statsPeriod === 'month') {
     return entries.filter(e => {
-      const d = new Date(e.date);
-      return d.getFullYear() === currentMonth.getFullYear() && d.getMonth() === currentMonth.getMonth();
+      const d = parseDate(e.date);
+      return d.y === currentMonth.getFullYear() && d.m === currentMonth.getMonth();
     });
   } else if (statsPeriod === 'year') {
-    return entries.filter(e => new Date(e.date).getFullYear() === statsYear);
+    return entries.filter(e => parseDate(e.date).y === statsYear);
   } else {
     return [...entries];
   }
@@ -1147,7 +1166,7 @@ function renderStats() {
     document.getElementById('annual-chart-title').textContent = `${statsYear}年 月別支出グラフ`;
   } else if (statsPeriod === 'all') {
     // Get all years in data
-    const years = [...new Set(entries.map(e => new Date(e.date).getFullYear()))].sort();
+    const years = [...new Set(entries.map(e => parseDate(e.date).y))].sort();
     if (years.length > 0) {
       renderAnnualChart(years[0], years[years.length-1]);
       document.getElementById('annual-chart-title').textContent = `全期間 年別支出グラフ`;
@@ -1220,15 +1239,15 @@ function renderAnnualChart(fromYear, toYear) {
     for (let m = 0; m < 12; m++) {
       const label = (m+1)+'月';
       const colEntries = entries.filter(e => {
-        const d = new Date(e.date);
-        return d.getFullYear() === fromYear && d.getMonth() === m;
+        const d = parseDate(e.date);
+        return d.y === fromYear && d.m === m;
       });
       cols.push({ label, entries: colEntries });
     }
   } else {
     // year columns
     for (let y = fromYear; y <= toYear; y++) {
-      const colEntries = entries.filter(e => new Date(e.date).getFullYear() === y);
+      const colEntries = entries.filter(e => parseDate(e.date).y === y);
       cols.push({ label: y+'年', entries: colEntries });
     }
   }
@@ -1305,8 +1324,8 @@ function renderAnnualChart(fromYear, toYear) {
 }
 
 function entryHTML(e, showDelete=false) {
-  const d = new Date(e.date);
-  const dateStr = `${d.getMonth()+1}月${d.getDate()}日`;
+  const { m: dm, d: dd } = parseDate(e.date);
+  const entryDateStr = `${dm+1}月${dd}日`;
   const icon = CAT_ICON[e.cat] || '📌';
   const kikaeNote = e.kikae !== 'なし' ? ` ・ <span style="color:var(--gold)">${e.kikae}</span>` : '';
   return `
@@ -1314,7 +1333,7 @@ function entryHTML(e, showDelete=false) {
       <div class="entry-dot">${icon}</div>
       <div class="entry-info">
         <div class="entry-name">${e.memo}</div>
-        <div class="entry-meta">${dateStr} ・ ${e.who}${kikaeNote}</div>
+        <div class="entry-meta">${entryDateStr} ・ ${e.who}${kikaeNote}</div>
         <span class="entry-cat-pill ${e.cat==='レジャー'?'leisure':''} ${e.cat==='医療費'?'medical':''}">${e.cat}</span>
       </div>
       <div class="entry-right">
@@ -1595,8 +1614,8 @@ async function applyFixedCostsToMonth() {
 
   // 今月すでに固定費として登録済みのものをチェック（memo一致）
   const thisMonthEntries = entries.filter(e => {
-    const d = new Date(e.date);
-    return d.getFullYear() === y && d.getMonth() === m;
+    const d = parseDate(e.date);
+    return d.y === y && d.m === m;
   });
   const existingMemos = new Set(thisMonthEntries.map(e => e.memo));
 
@@ -1624,8 +1643,8 @@ async function confirmApplyFixed(yes) {
   const dateStr = `${y}-${String(m+1).padStart(2,'0')}-01`;
 
   const thisMonthEntries = entries.filter(e => {
-    const d = new Date(e.date);
-    return d.getFullYear() === y && d.getMonth() === m;
+    const d = parseDate(e.date);
+    return d.y === y && d.m === m;
   });
   const existingMemos = new Set(thisMonthEntries.map(e => e.memo));
   const toAdd = FIXED_COSTS.filter(fc => fc.amount > 0 && !existingMemos.has(fc.name));
@@ -1663,16 +1682,16 @@ async function applyFixedCostsToMonth() {
 
   // 対象月に既に固定費が入っているか確認
   const alreadyApplied = entries.some(e => {
-    const ed = new Date(e.date);
-    return ed.getFullYear() === y && ed.getMonth() === m && e.cat === '固定費反映済';
+    const ed = parseDate(e.date);
+    return ed.y === y && ed.m === m && e.cat === '固定費反映済';
   });
 
   // 対象月の固定費IDを確認（重複防止）
   const existingFixed = new Set(
     entries
       .filter(e => {
-        const ed = new Date(e.date);
-        return ed.getFullYear() === y && ed.getMonth() === m && String(e.id).startsWith('fixed_');
+        const ed = parseDate(e.date);
+        return ed.y === y && ed.m === m && String(e.id).startsWith('fixed_');
       })
       .map(e => String(e.id))
   );
