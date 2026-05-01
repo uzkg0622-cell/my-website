@@ -1527,14 +1527,32 @@ async function scanReceipt(input) {
             },
             {
               type: 'text',
-              text: `このレシートの画像から以下の情報を抽出してください。
-必ずJSONのみで返答してください（コードブロック不要）:
+              text: `あなたは日本のレシート読み取り専門AIです。
+画像から以下の情報を正確に読み取り、必ずJSONのみで返答してください（コードブロック・説明文は一切不要）。
+
 {
-  "memo": "店名または支出内容（日本語）",
-  "amount": 数値（合計金額、円）,
-  "cat": "以下のいずれか: 食費 / 日用品 / 交通費 / 教育費 / 交際費 / 公租公課 / 保険 / レジャー / 通信費 / 光熱費 / 医療費 / その他"
+  "memo": "店名（レシート上部の店舗名・施設名を優先。例：anabuki PARK、トライアル、コスモス）",
+  "amount": 数値のみ（合計金額、税込、円単位。「合計」「お会計」「ご請求額」「利用金額」の行を優先）,
+  "cat": "以下のいずれか1つ: 食費 / 日用品 / 交通費 / 教育費 / 交際費 / 公租公課 / 保険 / レジャー / 通信費 / 光熱費 / 医療費 / その他",
+  "date": "YYYY-MM-DD形式（レシートの日付。見つからない場合は今日の日付）"
 }
-スーパー・食料品店は食費、ドラッグストアで食品以外は日用品、ガソリンは交通費、病院・薬局は医療費、飲食店はレジャーとして判断してください。`
+
+【カテゴリ判定ルール】
+- スーパー・食料品店・コンビニ（食品購入）→ 食費
+- ドラッグストア・ホームセンター（日用品）→ 日用品
+- ガソリンスタンド・駐車場・電車・バス・タクシー → 交通費
+- 病院・クリニック・薬局・調剤 → 医療費
+- レストラン・カフェ・居酒屋・飲食店 → レジャー
+- 学校・塾・習い事 → 教育費
+- 電気・ガス・水道 → 光熱費
+- 携帯・インターネット → 通信費
+- 映画・遊園地・旅行・ホテル → レジャー
+
+【重要な読み取りルール】
+- 金額は必ず数値のみ（¥マーク・カンマなし）
+- 「合計」「お支払い合計」「ご請求金額」「利用金額」を最優先
+- 駐車場レシートはP料金・駐車料金の合計金額を読む
+- 楽天ペイ・PayPay等の決済金額が明記されていればその金額`
             }
           ]
         }]
@@ -1549,11 +1567,18 @@ async function scanReceipt(input) {
     document.getElementById('f-memo').value = parsed.memo || '';
     document.getElementById('f-amount').value = parsed.amount || '';
 
+    // 日付をセット（AIが読み取った場合）
+    if (parsed.date && /^\d{4}-\d{2}-\d{2}$/.test(parsed.date)) {
+      document.getElementById('f-date').value = parsed.date;
+    }
+
     // highlight AI-filled fields
-    ['f-memo','f-amount'].forEach(id => {
+    ['f-memo','f-amount','f-date'].forEach(id => {
       const el = document.getElementById(id);
-      el.classList.add('ai-fill');
-      setTimeout(() => el.classList.remove('ai-fill'), 3000);
+      if (el) {
+        el.classList.add('ai-fill');
+        setTimeout(() => el.classList.remove('ai-fill'), 3000);
+      }
     });
 
     // set category
