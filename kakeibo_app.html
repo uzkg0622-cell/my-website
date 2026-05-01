@@ -1088,23 +1088,7 @@ function renderHome() {
   const catTotals = {};
   fe.forEach(e => { catTotals[e.cat] = (catTotals[e.cat]||0) + e.amount; });
 
-  // 固定費を今月分だけ加算
-  const HOME_FC_CAT_MAP = {
-    '電気代':'光熱費','水道代':'光熱費',
-    '泉 医療保険':'保険','泉 がん保険':'保険',
-    '啓史 スマホ':'通信費','泉 スマホ':'通信費','自宅 Wi-Fi':'通信費',
-    '咲良 ダンス月謝':'教育費',
-    '住宅ローン':'住宅ローン',
-  };
-  FIXED_COSTS.forEach(fc => {
-    if (!fc.amount || fc.amount <= 0) return;
-    const cat = HOME_FC_CAT_MAP[fc.name] || 'その他';
-    catTotals[cat] = (catTotals[cat]||0) + fc.amount;
-  });
-
-  // 合計も固定費込みで更新
-  const totalWithFixed = Object.values(catTotals).reduce((s,v)=>s+v,0);
-  document.getElementById('total-amount').textContent = '¥' + totalWithFixed.toLocaleString();
+  // ※固定費はカテゴリ別内訳に含めない（実入力データのみ）
 
   const maxVal = Math.max(...Object.values(catTotals), 1);
   const sorted = Object.entries(catTotals).sort((a,b)=>b[1]-a[1]).slice(0,6);
@@ -1196,45 +1180,7 @@ function renderStats() {
   const catTotals = {};
   fe.forEach(e => { catTotals[e.cat] = (catTotals[e.cat]||0) + e.amount; });
 
-  // 固定費をカテゴリ別に振り分け（期間内の月ごとに加算）
-  const FC_CAT_MAP = {
-    '電気代':'光熱費','水道代':'光熱費',
-    '泉 医療保険':'保険','泉 がん保険':'保険',
-    '啓史 スマホ':'通信費','泉 スマホ':'通信費','自宅 Wi-Fi':'通信費',
-    '咲良 ダンス月謝':'教育費',
-    '住宅ローン':'住宅ローン',
-  };
-
-  // 期間内の月リストを生成 [{y, m}, ...]
-  const fcMonthList = [];
-  if (statsPeriod === 'month') {
-    fcMonthList.push({ y: currentMonth.getFullYear(), m: currentMonth.getMonth() });
-  } else if (statsPeriod === 'year') {
-    for (let mo = 0; mo < 12; mo++) {
-      fcMonthList.push({ y: statsYear, m: mo });
-    }
-  } else { // all
-    const allParsed = entries.map(e => parseDate(e.date)).filter(d => d.y > 0);
-    if (allParsed.length > 0) {
-      const minY = Math.min(...allParsed.map(d => d.y));
-      const minM = allParsed.filter(d => d.y === minY).reduce((a, b) => Math.min(a, b.m), 11);
-      const now2 = new Date();
-      const endY = now2.getFullYear(), endM = now2.getMonth();
-      let cy = minY, cm = minM;
-      while (cy < endY || (cy === endY && cm <= endM)) {
-        fcMonthList.push({ y: cy, m: cm });
-        cm++;
-        if (cm > 11) { cm = 0; cy++; }
-      }
-    }
-  }
-
-  // 月リスト分だけ固定費を加算
-  FIXED_COSTS.forEach(fc => {
-    if (!fc.amount || fc.amount <= 0) return;
-    const cat = FC_CAT_MAP[fc.name] || 'その他';
-    catTotals[cat] = (catTotals[cat]||0) + fc.amount * fcMonthList.length;
-  });
+  // ※固定費はカテゴリ別内訳に含めない（実入力データのみ）
 
   const maxVal = Math.max(...Object.values(catTotals),1);
   const sorted = Object.entries(catTotals).sort((a,b)=>b[1]-a[1]);
@@ -1382,7 +1328,7 @@ function entryHTML(e, showDelete=false) {
       </div>
       <div class="entry-right">
         <div class="entry-amount">¥${e.amount.toLocaleString()}</div>
-        ${showDelete ? `<div style="font-size:11px;color:var(--text-muted);cursor:pointer;margin-top:4px;text-align:right" onclick="deleteEntry(${e.id})">削除</div>` : ''}
+        ${showDelete ? `<button style="font-size:12px;color:#C0392B;background:#FEE2E2;border:none;border-radius:6px;padding:4px 10px;cursor:pointer;margin-top:5px;font-family:inherit;font-weight:500;" onclick="deleteEntry('${e.id}')">🗑 削除</button>` : ''}
       </div>
     </div>
   `;
@@ -1495,7 +1441,7 @@ async function confirmDelete(yes) {
   document.getElementById('confirm-modal').style.display = 'none';
   if (!yes) { pendingDeleteId = null; return; }
   const id = pendingDeleteId;
-  entries = entries.filter(e => e.id !== id);
+  entries = entries.filter(e => String(e.id) !== String(id));
   pendingDeleteId = null;
   renderHistory();
   showToast('削除しました');
