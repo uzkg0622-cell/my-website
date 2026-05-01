@@ -1081,9 +1081,28 @@ function renderHome() {
     if (el) el.textContent = '¥' + sum.toLocaleString();
   });
 
-  // cat bars
+  // cat bars（固定費も含める・統計と同じ計算）
   const catTotals = {};
   fe.forEach(e => { catTotals[e.cat] = (catTotals[e.cat]||0) + e.amount; });
+
+  // 固定費を今月分だけ加算
+  const HOME_FC_CAT_MAP = {
+    '電気代':'光熱費','水道代':'光熱費',
+    '泉 医療保険':'保険','泉 がん保険':'保険',
+    '啓史 スマホ':'通信費','泉 スマホ':'通信費','自宅 Wi-Fi':'通信費',
+    '咲良 ダンス月謝':'教育費',
+    '住宅ローン':'住宅ローン',
+  };
+  FIXED_COSTS.forEach(fc => {
+    if (!fc.amount || fc.amount <= 0) return;
+    const cat = HOME_FC_CAT_MAP[fc.name] || 'その他';
+    catTotals[cat] = (catTotals[cat]||0) + fc.amount;
+  });
+
+  // 合計も固定費込みで更新
+  const totalWithFixed = Object.values(catTotals).reduce((s,v)=>s+v,0);
+  document.getElementById('total-amount').textContent = '¥' + totalWithFixed.toLocaleString();
+
   const maxVal = Math.max(...Object.values(catTotals), 1);
   const sorted = Object.entries(catTotals).sort((a,b)=>b[1]-a[1]).slice(0,6);
   const bars = document.getElementById('cat-bars');
@@ -1174,7 +1193,7 @@ function renderStats() {
   const catTotals = {};
   fe.forEach(e => { catTotals[e.cat] = (catTotals[e.cat]||0) + e.amount; });
 
-  // 固定費をカテゴリ別に振り分け（期間に応じた月数を掛ける）
+  // 固定費をカテゴリ別に振り分け（期間内の月ごとに加算）
   const FC_CAT_MAP = {
     '電気代':'光熱費','水道代':'光熱費',
     '泉 医療保険':'保険','泉 がん保険':'保険',
@@ -1182,23 +1201,36 @@ function renderStats() {
     '咲良 ダンス月謝':'教育費',
     '住宅ローン':'住宅ローン',
   };
-  // 期間の月数を計算
-  let fcMonths = 1;
-  if (statsPeriod === 'year') {
-    fcMonths = 12;
-  } else if (statsPeriod === 'all') {
-    const allDates = entries.map(e => parseDate(e.date));
-    if (allDates.length > 0) {
-      const minY = Math.min(...allDates.map(d => d.y));
-      const minM = allDates.filter(d => d.y === minY).reduce((a,b) => Math.min(a, b.m), 11);
+
+  // 期間内の月リストを生成 [{y, m}, ...]
+  const fcMonthList = [];
+  if (statsPeriod === 'month') {
+    fcMonthList.push({ y: currentMonth.getFullYear(), m: currentMonth.getMonth() });
+  } else if (statsPeriod === 'year') {
+    for (let mo = 0; mo < 12; mo++) {
+      fcMonthList.push({ y: statsYear, m: mo });
+    }
+  } else { // all
+    const allParsed = entries.map(e => parseDate(e.date)).filter(d => d.y > 0);
+    if (allParsed.length > 0) {
+      const minY = Math.min(...allParsed.map(d => d.y));
+      const minM = allParsed.filter(d => d.y === minY).reduce((a, b) => Math.min(a, b.m), 11);
       const now2 = new Date();
-      fcMonths = (now2.getFullYear() - minY) * 12 + (now2.getMonth() - minM) + 1;
+      const endY = now2.getFullYear(), endM = now2.getMonth();
+      let cy = minY, cm = minM;
+      while (cy < endY || (cy === endY && cm <= endM)) {
+        fcMonthList.push({ y: cy, m: cm });
+        cm++;
+        if (cm > 11) { cm = 0; cy++; }
+      }
     }
   }
+
+  // 月リスト分だけ固定費を加算
   FIXED_COSTS.forEach(fc => {
     if (!fc.amount || fc.amount <= 0) return;
     const cat = FC_CAT_MAP[fc.name] || 'その他';
-    catTotals[cat] = (catTotals[cat]||0) + fc.amount * fcMonths;
+    catTotals[cat] = (catTotals[cat]||0) + fc.amount * fcMonthList.length;
   });
 
   const maxVal = Math.max(...Object.values(catTotals),1);
