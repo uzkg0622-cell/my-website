@@ -1510,7 +1510,8 @@ async function scanReceipt(input) {
 
   try {
     const base64 = await fileToBase64(file);
-    const mediaType = file.type || 'image/jpeg';
+    // リサイズ後は必ずJPEG形式
+    const mediaType = 'image/jpeg';
 
     const response = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
@@ -1604,8 +1605,28 @@ async function scanReceipt(input) {
 function fileToBase64(file) {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
-    reader.onload = () => resolve(reader.result.split(',')[1]);
     reader.onerror = reject;
+    reader.onload = (e) => {
+      const img = new Image();
+      img.onerror = reject;
+      img.onload = () => {
+        // カメラ撮影画像は大きすぎるのでリサイズ（最大1600px）
+        const MAX = 1600;
+        let w = img.width, h = img.height;
+        if (w > MAX || h > MAX) {
+          if (w > h) { h = Math.round(h * MAX / w); w = MAX; }
+          else       { w = Math.round(w * MAX / h); h = MAX; }
+        }
+        const canvas = document.createElement('canvas');
+        canvas.width = w; canvas.height = h;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0, w, h);
+        // JPEG品質0.85でbase64に変換
+        const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
+        resolve(dataUrl.split(',')[1]);
+      };
+      img.src = e.target.result;
+    };
     reader.readAsDataURL(file);
   });
 }
