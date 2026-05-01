@@ -385,7 +385,7 @@ function renderHome(){
   const mv=Math.max(...Object.values(ct),1);
   document.getElementById('cat-bars').innerHTML=Object.entries(ct).sort((a,b)=>b[1]-a[1]).slice(0,6).map(([cat,amt])=>`<div class="cat-bar-row"><div class="cat-bar-label">${cat}</div><div class="cat-bar-track"><div class="cat-bar-fill" style="width:${Math.round(amt/mv*100)}%;background:${CAT_COLOR[cat]||'var(--primary-mid)'}"></div></div><div class="cat-bar-amount">¥${amt.toLocaleString()}</div></div>`).join('')||'<div style="color:var(--text-muted);font-size:13px;text-align:center;padding:12px">まだ記録がありません</div>';
   const recent=[...fe].sort((a,b)=>new Date(b.date)-new Date(a.date)).slice(0,6);
-  document.getElementById('recent-entries').innerHTML=recent.length?recent.map(e=>entryHTML(e)).join(''):'<div class="empty-state"><div class="icon">📝</div><p>今月はまだ記録がありません</p></div>';
+  document.getElementById('recent-entries').innerHTML=recent.length?recent.map(e=>entryHTML(e,true)).join(''):'<div class="empty-state"><div class="icon">📝</div><p>今月はまだ記録がありません</p></div>';
 }
 
 function renderHistory(){
