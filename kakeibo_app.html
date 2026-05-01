@@ -1508,13 +1508,25 @@ async function scanReceipt(input) {
   zone.classList.add('scanning');
   zone.classList.remove('done');
 
+  // スキャン中メッセージを更新
+  const scanningText = zone.querySelector('.scanning-text');
+  if (scanningText) scanningText.textContent = '画像を準備中...';
+
   try {
+    // リサイズ（時間がかかる場合あり）
     const base64 = await fileToBase64(file);
+    if (scanningText) scanningText.textContent = 'AIが読み取り中...';
+
     // リサイズ後は必ずJPEG形式
     const mediaType = 'image/jpeg';
 
+    // タイムアウト60秒
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 60000);
+
     const response = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
+      signal: controller.signal,
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         model: 'claude-sonnet-4-20250514',
@@ -1560,7 +1572,9 @@ async function scanReceipt(input) {
       })
     });
 
+    clearTimeout(timeoutId);
     const data = await response.json();
+    if (data.error) throw new Error(data.error.message || 'APIエラー');
     const text = data.content?.[0]?.text || '';
     const cleaned = text.replace(/```json?/g,'').replace(/```/g,'').trim();
     const parsed = JSON.parse(cleaned);
@@ -1597,8 +1611,14 @@ async function scanReceipt(input) {
 
   } catch(err) {
     zone.classList.remove('scanning');
-    showToast('読み取りエラー。手動で入力してください');
-    console.error(err);
+    if (err.name === 'AbortError') {
+      showToast('⏱ タイムアウト。もう一度お試しください');
+    } else if (err.message && err.message.includes('API')) {
+      showToast('APIエラー。しばらく待ってから再試行してください');
+    } else {
+      showToast('読み取りできませんでした。手動で入力してください');
+    }
+    console.error('scanReceipt error:', err);
   }
 }
 
