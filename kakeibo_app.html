@@ -1661,74 +1661,6 @@ function deleteFixed(id) {
 }
 
 // ─── 固定費を今月分に一括入力 ───
-async function applyFixedCostsToMonth() {
-  const y = currentMonth.getFullYear();
-  const m = currentMonth.getMonth();
-
-  // 今月1日の日付
-  const dateStr = `${y}-${String(m+1).padStart(2,'0')}-01`;
-
-  // 今月すでに固定費として登録済みのものをチェック（memo一致）
-  const thisMonthEntries = entries.filter(e => {
-    const d = parseDate(e.date);
-    return d.y === y && d.m === m;
-  });
-  const existingMemos = new Set(thisMonthEntries.map(e => e.memo));
-
-  const toAdd = FIXED_COSTS.filter(fc => fc.amount > 0 && !existingMemos.has(fc.name));
-
-  if (toAdd.length === 0) {
-    showToast('今月分はすべて入力済みです');
-    return;
-  }
-
-  // 確認ダイアログ
-  const names = toAdd.map(fc => `${fc.name} ¥${fc.amount.toLocaleString()}`).join('\n');
-  document.getElementById('fc-apply-list').textContent = names;
-  document.getElementById('fc-apply-month').textContent = `${y}年${m+1}月`;
-  document.getElementById('fc-apply-modal').style.display = 'flex';
-}
-
-async function confirmApplyFixed(yes) {
-  document.getElementById('fc-apply-modal').style.display = 'none';
-  if (!yes) return;
-
-  const y = currentMonth.getFullYear();
-  const m = currentMonth.getMonth();
-  const dateStr = `${y}-${String(m+1).padStart(2,'0')}-01`;
-
-  const thisMonthEntries = entries.filter(e => {
-    const d = parseDate(e.date);
-    return d.y === y && d.m === m;
-  });
-  const existingMemos = new Set(thisMonthEntries.map(e => e.memo));
-  const toAdd = FIXED_COSTS.filter(fc => fc.amount > 0 && !existingMemos.has(fc.name));
-
-  let count = 0;
-  for (const fc of toAdd) {
-    const entry = {
-      id: Date.now() + count,
-      date: dateStr,
-      memo: fc.name,
-      amount: fc.amount,
-      cat: fc.name === '住宅ローン' ? '住宅ローン' :
-           fc.name.includes('保険') ? '保険' :
-           fc.name.includes('スマホ') || fc.name.includes('Wi-Fi') ? '通信費' :
-           fc.name.includes('月謝') || fc.name.includes('スイミング') ? '教育費' :
-           fc.name.includes('電気') || fc.name.includes('水道') ? '光熱費' : 'その他',
-      who: '啓史',
-      kikae: 'なし',
-    };
-    entries.unshift(entry);
-    await saveEntries(entry);
-    count++;
-  }
-
-  renderHome();
-  renderStats();
-  showToast(`✓ ${count}件の固定費を登録しました`);
-}
-
 // ─── 固定費を今月分に入力 ───
 async function applyFixedCostsToMonth() {
   const y = currentMonth.getFullYear();
@@ -1762,13 +1694,16 @@ async function applyFixedCostsToMonth() {
   }
 
   const dateStr = `${y}-${String(m+1).padStart(2,'0')}-01`;
-  const FC_CAT_MAP = {
-    '電気代':'光熱費','水道代':'光熱費',
-    '泉 医療保険':'保険','泉 がん保険':'保険',
-    '啓史 スマホ':'通信費','泉 スマホ':'通信費','自宅 Wi-Fi':'通信費',
-    '咲良 ダンス月謝':'教育費',
-    '住宅ローン':'住宅ローン',
-  };
+  // 固定費のカテゴリを名前から自動判定
+  function fcCategory(name) {
+    if (name.includes('電気') || name.includes('水道') || name.includes('ガス') || name.includes('光熱')) return '光熱費';
+    if (name.includes('保険')) return '保険';
+    if (name.includes('スマホ') || name.includes('携帯') || name.includes('Wi-Fi') || name.includes('通信')) return '通信費';
+    if (name.includes('月謝') || name.includes('塾') || name.includes('スイミング') || name.includes('教育')) return '教育費';
+    if (name.includes('ローン') || name.includes('住宅')) return '住宅ローン';
+    if (name.includes('医療') || name.includes('病院')) return '医療費';
+    return 'その他';
+  }
 
   setLoading(true);
   let addedCount = 0;
@@ -1778,7 +1713,7 @@ async function applyFixedCostsToMonth() {
       date: dateStr,
       memo: fc.name,
       amount: fc.amount,
-      cat: FC_CAT_MAP[fc.name] || 'その他',
+      cat: fcCategory(fc.name),
       who: '啓史',
       kikae: 'なし',
     };
