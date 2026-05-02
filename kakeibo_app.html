@@ -433,16 +433,31 @@ function renderAnnualChart(fromYear,toYear){
   const maxT=Math.max(...colData.map(c=>c.total),1);
   const activeCats=CATS.filter(cat=>colData.some(c=>c.totals[cat]>0));
   document.getElementById('annual-legend').innerHTML=activeCats.map(cat=>`<div class="legend-item"><div class="legend-dot" style="background:${CAT_COLOR[cat]||'#888'}"></div><span>${cat}</span></div>`).join('');
-  const ch=160;let gh='';
+  // 年間（12列）は画面幅に収まるよう自動計算、全期間は横スクロール
+  const isSingleYear = (fromYear === toYear);
+  const ch = isSingleYear ? 180 : 160;
+  const labelW = 28, gapW = isSingleYear ? 3 : 5;
+  // 利用可能幅からカラム幅を自動計算
+  const containerW = (document.getElementById('annual-bar-chart').parentElement.offsetWidth || 320) - labelW - 16;
+  const colW = isSingleYear ? Math.floor((containerW - gapW * (cols.length - 1)) / cols.length) : 44;
+
+  let gh='';
   for(let i=1;i<=4;i++){const p=(i/4)*100,v=Math.round(maxT*(i/4));gh+=`<div class="annual-gridline" style="bottom:${p}%"></div><div class="annual-gridlabel" style="bottom:${p}%">${v>=10000?Math.round(v/10000)+'万':v.toLocaleString()}</div>`;}
-  const bH=colData.map(col=>{const barH=maxT>0?Math.round((col.total/maxT)*ch):0;let segs='';activeCats.forEach(cat=>{const v=col.totals[cat]||0;if(!v)return;segs+=`<div class="annual-bar-seg" style="height:${Math.round((v/maxT)*ch)}px;background:${CAT_COLOR[cat]||'#888'};"></div>`;});const al=col.total>=10000?Math.round(col.total/10000)+'万':(col.total>0?col.total.toLocaleString():'');return`<div class="annual-col"><div class="annual-col-amount">${al}</div><div class="annual-bar-stack" style="height:${barH}px;">${segs}</div><div class="annual-col-label">${col.label}</div></div>`;}).join('');
-  // 列数に応じてmin-widthを動的計算（1列48px+gap5px）
-  const colW = 48, gapW = 5, labelW = 32;
-  const totalW = Math.max(480, cols.length * (colW + gapW) + labelW + 20);
-  document.getElementById('annual-bar-chart').style.minWidth = totalW + 'px';
+
+  const bH=colData.map(col=>{
+    const barH=maxT>0?Math.round((col.total/maxT)*ch):0;
+    let segs='';activeCats.forEach(cat=>{const v=col.totals[cat]||0;if(!v)return;segs+=`<div class="annual-bar-seg" style="height:${Math.round((v/maxT)*ch)}px;background:${CAT_COLOR[cat]||'#888'};"></div>`;});
+    const al=col.total>=10000?Math.round(col.total/10000)+'万':(col.total>0?col.total.toLocaleString():'');
+    // 月ラベルを短く（6月→6）
+    const shortLabel = col.label.replace('月','').replace('年','');
+    return`<div style="display:flex;flex-direction:column;align-items:center;width:${colW}px;flex-shrink:0;position:relative;justify-content:flex-end;height:100%;"><div style="font-size:9px;color:var(--text-muted);margin-bottom:2px;white-space:nowrap;">${al}</div><div style="width:100%;display:flex;flex-direction:column-reverse;border-radius:3px 3px 0 0;overflow:hidden;height:${barH}px;">${segs}</div><div style="position:absolute;bottom:-18px;font-size:10px;color:var(--text-muted);white-space:nowrap;">${col.label}</div></div>`;
+  }).join('');
+
+  const totalW = isSingleYear ? '100%' : (cols.length * (colW + gapW) + labelW + 20) + 'px';
+  document.getElementById('annual-bar-chart').style.minWidth = totalW;
   document.getElementById('annual-bar-chart').innerHTML=`<div style="display:flex;align-items:flex-end;gap:${gapW}px;height:${ch+48}px;width:100%;position:relative;padding-left:${labelW}px;padding-bottom:28px;">${gh}<div style="display:flex;align-items:flex-end;gap:${gapW}px;height:${ch}px;width:100%;position:relative;z-index:1;">${bH}</div></div>`;
-  // 最新月（右端）にスクロール
-  const sc=document.getElementById('annual-scroll');if(sc)sc.scrollLeft=sc.scrollWidth;
+  // 全期間は右端（最新）へスクロール
+  if(!isSingleYear){const sc=document.getElementById('annual-scroll');if(sc)sc.scrollLeft=sc.scrollWidth;}
 }
 
 function entryHTML(e,showDelete=false){
