@@ -256,7 +256,9 @@
   <div class="chart-container" id="annual-chart-container" style="display:none;">
     <div class="chart-title" id="annual-chart-title">月別支出グラフ</div>
     <div id="annual-legend" style="display:flex;flex-wrap:wrap;gap:6px 10px;margin-bottom:12px;"></div>
-    <div style="overflow-x:auto;-webkit-overflow-scrolling:touch;"><div id="annual-bar-chart" style="min-width:520px;padding-bottom:4px;"></div></div>
+    <div id="annual-scroll" style="overflow-x:auto;-webkit-overflow-scrolling:touch;padding-bottom:8px;">
+      <div id="annual-bar-chart" style="padding-bottom:4px;"></div>
+    </div>
   </div>
   <div class="chart-container"><div class="chart-title">カテゴリ別内訳</div><div class="bar-chart" id="stats-bars"></div></div>
   <div class="chart-container"><div class="chart-title">立替払い残高</div><div id="kikae-stats"></div></div>
@@ -434,7 +436,13 @@ function renderAnnualChart(fromYear,toYear){
   const ch=160;let gh='';
   for(let i=1;i<=4;i++){const p=(i/4)*100,v=Math.round(maxT*(i/4));gh+=`<div class="annual-gridline" style="bottom:${p}%"></div><div class="annual-gridlabel" style="bottom:${p}%">${v>=10000?Math.round(v/10000)+'万':v.toLocaleString()}</div>`;}
   const bH=colData.map(col=>{const barH=maxT>0?Math.round((col.total/maxT)*ch):0;let segs='';activeCats.forEach(cat=>{const v=col.totals[cat]||0;if(!v)return;segs+=`<div class="annual-bar-seg" style="height:${Math.round((v/maxT)*ch)}px;background:${CAT_COLOR[cat]||'#888'};"></div>`;});const al=col.total>=10000?Math.round(col.total/10000)+'万':(col.total>0?col.total.toLocaleString():'');return`<div class="annual-col"><div class="annual-col-amount">${al}</div><div class="annual-bar-stack" style="height:${barH}px;">${segs}</div><div class="annual-col-label">${col.label}</div></div>`;}).join('');
-  document.getElementById('annual-bar-chart').innerHTML=`<div style="display:flex;align-items:flex-end;gap:5px;height:${ch}px;width:100%;position:relative;padding-left:28px;padding-bottom:24px;">${gh}<div style="display:flex;align-items:flex-end;gap:5px;height:${ch}px;width:100%;position:relative;z-index:1;">${bH}</div></div>`;
+  // 列数に応じてmin-widthを動的計算（1列48px+gap5px）
+  const colW = 48, gapW = 5, labelW = 32;
+  const totalW = Math.max(480, cols.length * (colW + gapW) + labelW + 20);
+  document.getElementById('annual-bar-chart').style.minWidth = totalW + 'px';
+  document.getElementById('annual-bar-chart').innerHTML=`<div style="display:flex;align-items:flex-end;gap:${gapW}px;height:${ch+48}px;width:100%;position:relative;padding-left:${labelW}px;padding-bottom:28px;">${gh}<div style="display:flex;align-items:flex-end;gap:${gapW}px;height:${ch}px;width:100%;position:relative;z-index:1;">${bH}</div></div>`;
+  // 最新月（右端）にスクロール
+  const sc=document.getElementById('annual-scroll');if(sc)sc.scrollLeft=sc.scrollWidth;
 }
 
 function entryHTML(e,showDelete=false){
