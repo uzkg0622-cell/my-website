@@ -319,6 +319,24 @@
     <div class="modal-title" id="fixed-modal-title">固定費を追加</div>
     <div class="form-row"><label class="form-label">項目名</label><input class="form-input" id="fixed-name-input" type="text" placeholder="例：電気代…"></div>
     <div class="form-row"><label class="form-label">金額</label><div class="amount-row"><span class="yen">¥</span><input class="form-input amount-input" id="fixed-amount-input" type="number" inputmode="numeric"></div></div>
+    <div class="form-row">
+      <label class="form-label">カテゴリ</label>
+      <div class="cat-grid" id="fixed-cat-grid">
+        <button class="cat-btn" onclick="selectFixedCat(this)">食費</button>
+        <button class="cat-btn" onclick="selectFixedCat(this)">日用品</button>
+        <button class="cat-btn" onclick="selectFixedCat(this)">交通費</button>
+        <button class="cat-btn" onclick="selectFixedCat(this)">教育費</button>
+        <button class="cat-btn" onclick="selectFixedCat(this)">交際費</button>
+        <button class="cat-btn" onclick="selectFixedCat(this)">公租公課</button>
+        <button class="cat-btn active" onclick="selectFixedCat(this)">保険</button>
+        <button class="cat-btn" onclick="selectFixedCat(this)">レジャー</button>
+        <button class="cat-btn" onclick="selectFixedCat(this)">通信費</button>
+        <button class="cat-btn" onclick="selectFixedCat(this)">光熱費</button>
+        <button class="cat-btn" onclick="selectFixedCat(this)">医療費</button>
+        <button class="cat-btn" onclick="selectFixedCat(this)">住宅ローン</button>
+        <button class="cat-btn" onclick="selectFixedCat(this)">その他</button>
+      </div>
+    </div>
     <div class="modal-btns"><button class="btn-primary" onclick="saveFixed()">保存</button><button class="btn-cancel" onclick="closeFixedModal()">キャンセル</button></div>
   </div>
 </div>
@@ -587,15 +605,34 @@ function showToast(msg){const t=document.getElementById('toast');t.textContent=m
 
 // ─── Fixed Costs ───
 let editingFixedId=null;
-function openAddFixed(){editingFixedId=null;document.getElementById('fixed-modal-title').textContent='固定費を追加';document.getElementById('fixed-name-input').value='';document.getElementById('fixed-amount-input').value='';document.getElementById('fixed-modal').style.display='flex';}
-function openEditFixed(id){const fc=FIXED_COSTS.find(f=>f.id===id);if(!fc)return;editingFixedId=id;document.getElementById('fixed-modal-title').textContent='固定費を編集';document.getElementById('fixed-name-input').value=fc.name;document.getElementById('fixed-amount-input').value=fc.amount||'';document.getElementById('fixed-modal').style.display='flex';}
+let editingFixedCat = '光熱費';
+function selectFixedCat(el){editingFixedCat=el.textContent;document.querySelectorAll('#fixed-cat-grid .cat-btn').forEach(b=>b.classList.remove('active'));el.classList.add('active');}
+function openAddFixed(){
+  editingFixedId=null;editingFixedCat='光熱費';
+  document.getElementById('fixed-modal-title').textContent='固定費を追加';
+  document.getElementById('fixed-name-input').value='';
+  document.getElementById('fixed-amount-input').value='';
+  document.querySelectorAll('#fixed-cat-grid .cat-btn').forEach(b=>b.classList.toggle('active',b.textContent==='光熱費'));
+  document.getElementById('fixed-modal').style.display='flex';
+}
+function openEditFixed(id){
+  const fc=FIXED_COSTS.find(f=>f.id===id);if(!fc)return;
+  editingFixedId=id;
+  // 保存済みカテゴリがあればそれを使用、なければ名前から自動判定
+  editingFixedCat=fc.cat||fcCategory(fc.name);
+  document.getElementById('fixed-modal-title').textContent='固定費を編集';
+  document.getElementById('fixed-name-input').value=fc.name;
+  document.getElementById('fixed-amount-input').value=fc.amount||'';
+  document.querySelectorAll('#fixed-cat-grid .cat-btn').forEach(b=>b.classList.toggle('active',b.textContent===editingFixedCat));
+  document.getElementById('fixed-modal').style.display='flex';
+}
 function closeFixedModal(){document.getElementById('fixed-modal').style.display='none';editingFixedId=null;}
 function saveFixed(){
   const name=document.getElementById('fixed-name-input').value.trim();
   const amount=parseInt(document.getElementById('fixed-amount-input').value)||0;
   if(!name){showToast('項目名を入力してください');return;}
-  if(editingFixedId!==null){const fc=FIXED_COSTS.find(f=>f.id===editingFixedId);if(fc){fc.name=name;fc.amount=amount;}showToast('✓ 更新しました');}
-  else{FIXED_COSTS.push({id:Date.now(),name,amount});showToast('✓ 追加しました');}
+  if(editingFixedId!==null){const fc=FIXED_COSTS.find(f=>f.id===editingFixedId);if(fc){fc.name=name;fc.amount=amount;fc.cat=editingFixedCat;}showToast('✓ 更新しました');}
+  else{FIXED_COSTS.push({id:Date.now(),name,amount,cat:editingFixedCat});showToast('✓ 追加しました');}
   saveFixedCosts();closeFixedModal();renderStats();
 }
 function deleteFixed(id){FIXED_COSTS=FIXED_COSTS.filter(f=>f.id!==id);saveFixedCosts();renderStats();showToast('削除しました');}
@@ -630,7 +667,7 @@ async function confirmApplyFixed(yes){
   const exF=new Set(entries.filter(e=>{const ed=parseDate(e.date);return ed.y===y&&ed.m===m&&String(e.id).startsWith('fixed_');}).map(e=>String(e.id)));
   const newT=FIXED_COSTS.filter(fc=>fc.amount>0&&!exF.has(`fixed_${y}${String(m+1).padStart(2,'0')}_${fc.id}`));
   setLoading(true);let count=0;
-  for(const fc of newT){const entry={id:`fixed_${y}${String(m+1).padStart(2,'0')}_${fc.id}`,date:dateStr,memo:fc.name,amount:fc.amount,cat:fcCategory(fc.name),who:'啓史',kikae:'なし'};entries.unshift(entry);await saveEntries(entry);count++;}
+  for(const fc of newT){const entry={id:`fixed_${y}${String(m+1).padStart(2,'0')}_${fc.id}`,date:dateStr,memo:fc.name,amount:fc.amount,cat:fc.cat||fcCategory(fc.name),who:'啓史',kikae:'なし'};entries.unshift(entry);await saveEntries(entry);count++;}
   setLoading(false);renderHome();renderStats();showToast(`✓ ${y}年${m+1}月に固定費${count}件を入力しました`);
 }
 
