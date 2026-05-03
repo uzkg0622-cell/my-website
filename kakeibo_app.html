@@ -369,15 +369,30 @@ const CAT_COLOR={'食費':'#2E7D55','日用品':'#1565C0','交通費':'#6A1B9A',
 
 let FIXED_COSTS=loadFixedCosts();
 function loadFixedCosts(){try{const r=localStorage.getItem('umeimi_fixed_costs');if(r)return JSON.parse(r);}catch(e){}return[{id:1,name:'電気代',amount:0},{id:2,name:'水道代',amount:7748},{id:3,name:'泉 医療保険',amount:2140},{id:4,name:'泉 がん保険',amount:2448},{id:5,name:'啓史 スマホ',amount:1880},{id:6,name:'泉 スマホ',amount:941},{id:7,name:'自宅 Wi-Fi',amount:5280},{id:9,name:'住宅ローン',amount:60000}];}
-function saveFixedCosts(){localStorage.setItem('umeimi_fixed_costs',JSON.stringify(FIXED_COSTS));}
+function saveFixedCosts(){
+  localStorage.setItem('umeimi_fixed_costs',JSON.stringify(FIXED_COSTS));
+  // スプレッドシートにも非同期保存
+  fetch(GAS_URL,{method:'POST',body:JSON.stringify({action:'saveFixedCosts',fixedCosts:FIXED_COSTS})})
+    .catch(e=>console.error('固定費保存エラー:',e));
+}
 
-const GAS_URL='https://script.google.com/macros/s/AKfycbzzefXhosGm6GFZX4kzXkVQNHqbBrfrvbzZHZYBXJPxYLV4u3gEzt-Qeq8Ig8PxAaBq6w/exec';
+const GAS_URL='https://script.google.com/macros/s/AKfycbxiShTlimYkVbtFcAeIqhuW5BPkBu2CUdhQwsG1kAKjLJycsRQBtbdxyMadDqId3Ka-FQ/exec';
 function setLoading(on){document.getElementById('sync-indicator').style.display=on?'flex':'none';}
 
 async function loadEntries(){
   setLoading(true);
-  try{const res=await fetch(GAS_URL);const data=await res.json();if(data.entries){entries=data.entries;localStorage.setItem('umeimi_cache',JSON.stringify(entries));}}
-  catch(e){const c=localStorage.getItem('umeimi_cache');entries=c?JSON.parse(c):[];showToast('オフライン：キャッシュを表示中');}
+  try{
+    const res=await fetch(GAS_URL);const data=await res.json();
+    if(data.entries){entries=data.entries;localStorage.setItem('umeimi_cache',JSON.stringify(entries));}
+    if(data.fixedCosts && data.fixedCosts.length>0){
+      FIXED_COSTS=data.fixedCosts;
+      localStorage.setItem('umeimi_fixed_costs',JSON.stringify(FIXED_COSTS));
+    }
+  }
+  catch(e){
+    const c=localStorage.getItem('umeimi_cache');entries=c?JSON.parse(c):[];
+    showToast('オフライン：キャッシュを表示中');
+  }
   finally{setLoading(false);}
 }
 async function saveEntries(entry){
